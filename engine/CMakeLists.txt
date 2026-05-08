@@ -36,6 +36,7 @@ set(ENGINE_SOURCES
 
     src/gfx/Device.cpp
     src/gfx/SwapChain.cpp
+    src/gfx/Resources.cpp
     src/gfx/ResourceCache.cpp
     src/gfx/ShaderCompiler.cpp
     src/gfx/Mesh.cpp

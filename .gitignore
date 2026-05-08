@@ -1,0 +1,50 @@
+# Build output
+build/
+out/
+bin/
+lib/
+obj/
+*.exe
+*.dll
+*.lib
+*.exp
+*.pdb
+*.ilk
+*.idb
+*.obj
+
+# vcpkg
+vcpkg_installed/
+.vcpkg/
+
+# Editor artifacts
+.vs/
+.vscode/
+.idea/
+*.user
+*.suo
+*.sln.docstates
+
+# CMake
+CMakeCache.txt
+CMakeFiles/
+CMakeScripts/
+Testing/
+Makefile
+cmake_install.cmake
+install_manifest.txt
+compile_commands.json
+
+# OS
+Thumbs.db
+.DS_Store
+
+# Cooked / generated
+cooked/
+packaged/
+*.cooked
+
+# Hot reload shadow copies
+*.dll.tmp
+*.dll.locked
+gameplay_loaded_*.dll

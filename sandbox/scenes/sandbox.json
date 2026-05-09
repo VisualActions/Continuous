@@ -1,0 +1,130 @@
+{
+  "version": 1,
+  "entities": [
+    {
+      "id": 0,
+      "name": { "name": "Main Camera" },
+      "transform": { "local": { "position": [0.0, 1.7, -6.0], "rotation": [1, 0, 0, 0], "scale": [1, 1, 1] } },
+      "camera": { "fov_y_deg": 60.0, "near_z": 0.1, "far_z": 500.0, "clear_color": [0.05, 0.06, 0.08, 1.0], "primary": true },
+      "audio_listener": { "primary": true }
+    },
+    {
+      "id": 1,
+      "name": { "name": "Sun" },
+      "transform": {
+        "local": { "position": [0, 10, 0], "rotation": [0.93, -0.36, 0.00, 0.00], "scale": [1, 1, 1] }
+      },
+      "light": {
+        "type": "Directional",
+        "color": [1.0, 0.96, 0.92, 1.0],
+        "intensity": 4.0,
+        "range": 100.0,
+        "casts_shadow": true
+      }
+    },
+    {
+      "id": 2,
+      "name": { "name": "Floor" },
+      "transform": { "local": { "position": [0, 0, 0], "rotation": [1, 0, 0, 0], "scale": [1, 1, 1] } },
+      "mesh_renderer": {
+        "mesh_id": "_procedural/plane",
+        "materials": ["_default"],
+        "cast_shadow": false,
+        "visible": true
+      },
+      "rigid_body": {
+        "shape": "Box",
+        "size": [10.0, 0.05, 10.0],
+        "mass": 0.0,
+        "friction": 0.8,
+        "restitution": 0.1,
+        "is_static": true,
+        "is_trigger": false
+      }
+    },
+    {
+      "id": 3,
+      "name": { "name": "Player" },
+      "transform": { "local": { "position": [0, 1.0, -2.0], "rotation": [1, 0, 0, 0], "scale": [1, 1, 1] } },
+      "character": {
+        "height": 1.8, "radius": 0.4, "step_height": 0.3, "max_walk_slope_deg": 50.0,
+        "move_speed": 5.0, "jump_speed": 6.0
+      },
+      "script": { "class_name": "sb::PlayerController" }
+    },
+    {
+      "id": 4,
+      "name": { "name": "Cube A" },
+      "transform": { "local": { "position": [-1.5, 1.5, 1.0], "rotation": [1, 0, 0, 0], "scale": [1, 1, 1] } },
+      "mesh_renderer": {
+        "mesh_id": "_procedural/cube",
+        "materials": ["_default"]
+      },
+      "rigid_body": {
+        "shape": "Box",
+        "size": [0.5, 0.5, 0.5],
+        "mass": 1.0,
+        "friction": 0.6,
+        "restitution": 0.2,
+        "is_static": false
+      }
+    },
+    {
+      "id": 5,
+      "name": { "name": "Cube B" },
+      "transform": { "local": { "position": [1.5, 2.5, 1.0], "rotation": [0.92, 0.0, 0.0, 0.38], "scale": [1, 1, 1] } },
+      "mesh_renderer": {
+        "mesh_id": "_procedural/cube",
+        "materials": ["_default"]
+      },
+      "rigid_body": {
+        "shape": "Box",
+        "size": [0.5, 0.5, 0.5],
+        "mass": 1.0,
+        "friction": 0.6,
+        "restitution": 0.2,
+        "is_static": false
+      }
+    },
+    {
+      "id": 6,
+      "name": { "name": "Spinning Sphere" },
+      "transform": { "local": { "position": [0, 1.0, 4.0], "rotation": [1, 0, 0, 0], "scale": [1, 1, 1] } },
+      "mesh_renderer": {
+        "mesh_id": "_procedural/sphere",
+        "materials": ["_default"]
+      },
+      "audio_source": {
+        "clip_id": "blip.wav",
+        "volume": 0.8, "pitch": 1.0, "loop": false, "play_on_start": false,
+        "spatialize": true, "min_distance": 1.0, "max_distance": 30.0
+      },
+      "script": { "class_name": "sb::Spinner" }
+    },
+    {
+      "id": 7,
+      "name": { "name": "Net Wobbler" },
+      "transform": { "local": { "position": [3.0, 1.0, 0.0], "rotation": [1, 0, 0, 0], "scale": [1, 1, 1] } },
+      "mesh_renderer": {
+        "mesh_id": "_procedural/cube",
+        "materials": ["_default"]
+      },
+      "script": { "class_name": "sb::NetDemoController" }
+    },
+    {
+      "id": 8,
+      "name": { "name": "Audio Beacon" },
+      "transform": { "local": { "position": [-3.0, 1.0, 0.0], "rotation": [1, 0, 0, 0], "scale": [0.5, 0.5, 0.5] } },
+      "mesh_renderer": {
+        "mesh_id": "_procedural/sphere",
+        "materials": ["_default"]
+      },
+      "audio_source": {
+        "clip_id": "blip.wav",
+        "volume": 0.6, "pitch": 1.0, "loop": false, "play_on_start": false,
+        "spatialize": true, "min_distance": 1.0, "max_distance": 30.0
+      },
+      "script": { "class_name": "sb::AudioBlip" }
+    }
+  ]
+}

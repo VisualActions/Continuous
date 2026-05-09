@@ -42,6 +42,16 @@ bool Engine::init(const EngineConfig& cfg) {
     }
     renderer_.set_ibl(&ibl_);
 
+    // Register a sensible default material so MeshRenderers without an
+    // explicit material can still render.
+    {
+        auto* m = asset::Manager::get().load_material("_default");
+        m->base_color = {0.85f, 0.85f, 0.88f, 1.0f};
+        m->roughness  = 0.6f;
+        m->metallic   = 0.0f;
+        m->ao         = 1.0f;
+    }
+
     hud_.init(device_);
 
     jobs::global().init();

@@ -29,34 +29,52 @@ jobs:
           - name: Windows-x64
             triplet: x64-windows
             arch: x64
+            msvc_arch: x64
             experimental: false
           - name: Windows-x86
             triplet: x86-windows
             arch: Win32
+            msvc_arch: x86
             experimental: true
           - name: Windows-ARM64
             triplet: arm64-windows
             arch: ARM64
+            msvc_arch: amd64_arm64
             experimental: true
+
+    env:
+      VCPKG_DEFAULT_TRIPLET: ${{ matrix.profile.triplet }}
+      VCPKG_BINARY_SOURCES: "clear;x-gha,readwrite"
 
     steps:
       - uses: actions/checkout@v4
+
+      - name: Export GitHub Actions cache vars (vcpkg binary cache)
+        uses: actions/github-script@v7
         with:
-          submodules: recursive
+          script: |
+            core.exportVariable('ACTIONS_CACHE_URL', process.env.ACTIONS_CACHE_URL || '');
+            core.exportVariable('ACTIONS_RUNTIME_TOKEN', process.env.ACTIONS_RUNTIME_TOKEN || '');
 
       - uses: ilammy/msvc-dev-cmd@v1
         with:
-          arch: ${{ matrix.profile.arch == 'x64' && 'x64' || matrix.profile.arch == 'Win32' && 'x86' || 'amd64_arm64' }}
+          arch: ${{ matrix.profile.msvc_arch }}
 
-      - uses: lukka/run-vcpkg@v11
-        with:
-          vcpkgGitCommitId: '1de2026f28ead93d1a1f73d6347dbcfb18b0e0fe'
+      - name: Update pre-installed vcpkg
+        shell: pwsh
+        run: |
+          Push-Location "$env:VCPKG_INSTALLATION_ROOT"
+          git fetch --depth=1 origin master
+          git reset --hard origin/master
+          .\bootstrap-vcpkg.bat -disableMetrics
+          Pop-Location
+          "VCPKG_ROOT=$env:VCPKG_INSTALLATION_ROOT" | Out-File -FilePath $env:GITHUB_ENV -Append
 
       - name: Configure
         shell: cmd
         run: |
           cmake -S . -B build -G "Visual Studio 17 2022" -A ${{ matrix.profile.arch }} ^
-            -DCMAKE_TOOLCHAIN_FILE=%VCPKG_ROOT%/scripts/buildsystems/vcpkg.cmake ^
+            -DCMAKE_TOOLCHAIN_FILE=%VCPKG_ROOT%\scripts\buildsystems\vcpkg.cmake ^
             -DVCPKG_TARGET_TRIPLET=${{ matrix.profile.triplet }} ^
             -DVCPKG_HOST_TRIPLET=x64-windows
 

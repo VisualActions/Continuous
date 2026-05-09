@@ -2,7 +2,6 @@
   "name": "continuous",
   "version-string": "0.1.0",
   "description": "Continuous - a C++ game engine.",
-  "builtin-baseline": "1de2026f28ead93d1a1f73d6347dbcfb18b0e0fe",
   "dependencies": [
     "sdl3",
     "glm",

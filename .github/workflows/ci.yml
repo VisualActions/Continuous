@@ -10,8 +10,6 @@ name: CI
 #                       backend that does not exist in this codebase yet.
 #   - Windows ARM32  -> dead target since Windows RT (2012); vcpkg has no
 #                       `arm-windows` triplet, so there is nothing to ship.
-# Track these in https://github.com/VisualActions/Continuous/issues if you
-# decide to invest in a non-D3D11 RHI.
 
 on:
   push:
@@ -32,25 +30,29 @@ jobs:
           - name: Windows-x64
             triplet: x64-windows
             arch: x64
+            msvc_arch: x64
             experimental: false
           - name: Windows-x86
             triplet: x86-windows
             arch: Win32
+            msvc_arch: x86
             experimental: true
           - name: Windows-ARM64
             triplet: arm64-windows
             arch: ARM64
+            msvc_arch: amd64_arm64
             experimental: true
 
     env:
-      VCPKG_BINARY_SOURCES: "clear;x-gha,readwrite"
+      # Use the vcpkg pre-installed on the GitHub Windows runner.
+      # The runner exports VCPKG_INSTALLATION_ROOT pointing at C:\vcpkg.
       VCPKG_DEFAULT_TRIPLET: ${{ matrix.profile.triplet }}
+      # Cache built ports across runs in the GitHub Actions cache.
+      VCPKG_BINARY_SOURCES: "clear;x-gha,readwrite"
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-        with:
-          submodules: recursive
 
       - name: Export GitHub Actions cache vars (vcpkg binary cache)
         uses: actions/github-script@v7
@@ -62,18 +64,25 @@ jobs:
       - name: Set up MSVC
         uses: ilammy/msvc-dev-cmd@v1
         with:
-          arch: ${{ matrix.profile.arch == 'x64' && 'x64' || matrix.profile.arch == 'Win32' && 'x86' || 'amd64_arm64' }}
+          arch: ${{ matrix.profile.msvc_arch }}
 
-      - name: Bootstrap vcpkg (action)
-        uses: lukka/run-vcpkg@v11
-        with:
-          vcpkgGitCommitId: '1de2026f28ead93d1a1f73d6347dbcfb18b0e0fe'
+      - name: Update pre-installed vcpkg
+        shell: pwsh
+        run: |
+          # The runner has vcpkg pre-installed at $env:VCPKG_INSTALLATION_ROOT.
+          # Pull the latest ports to make sure recent ports (sdl3, etc.) exist.
+          Push-Location "$env:VCPKG_INSTALLATION_ROOT"
+          git fetch --depth=1 origin master
+          git reset --hard origin/master
+          .\bootstrap-vcpkg.bat -disableMetrics
+          Pop-Location
+          "VCPKG_ROOT=$env:VCPKG_INSTALLATION_ROOT" | Out-File -FilePath $env:GITHUB_ENV -Append
 
       - name: Configure
         shell: cmd
         run: |
           cmake -S . -B build -G "Visual Studio 17 2022" -A ${{ matrix.profile.arch }} ^
-            -DCMAKE_TOOLCHAIN_FILE=%VCPKG_ROOT%/scripts/buildsystems/vcpkg.cmake ^
+            -DCMAKE_TOOLCHAIN_FILE=%VCPKG_ROOT%\scripts\buildsystems\vcpkg.cmake ^
             -DVCPKG_TARGET_TRIPLET=${{ matrix.profile.triplet }} ^
             -DVCPKG_HOST_TRIPLET=x64-windows
 
@@ -98,10 +107,6 @@ jobs:
           if-no-files-found: warn
           retention-days: 14
 
-  # ---------------------------------------------------------------------------
-  # Placeholder jobs for the targets that cannot build yet, so the matrix in
-  # the README is honest. They print a single explanatory line and exit 0.
-  # ---------------------------------------------------------------------------
   unsupported-platforms:
     name: ${{ matrix.tgt }} (not-yet-supported)
     runs-on: ubuntu-latest

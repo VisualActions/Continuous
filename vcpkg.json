@@ -6,7 +6,6 @@
   "dependencies": [
     "sdl3",
     "glm",
-    "imgui",
     {
       "name": "imgui",
       "features": ["docking-experimental", "dx11-binding", "sdl3-binding"]
@@ -17,9 +16,10 @@
     "nlohmann-json",
     "miniaudio",
     "enet",
-    "jolt-physics",
-    "directxmath",
-    "directxtk",
+    {
+      "name": "jolt-physics",
+      "default-features": true
+    },
     "spdlog",
     "fmt"
   ]

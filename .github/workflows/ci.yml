@@ -1,0 +1,117 @@
+name: CI
+
+# Build matrix:
+#   - Windows x64        (primary target, must pass)
+#   - Windows x86  32bit (best-effort, allowed to fail)
+#   - Windows ARM64      (best-effort cross-compile, allowed to fail)
+#
+# Targets we deliberately do NOT build:
+#   - macOS / Linux  -> the renderer is D3D11; non-Windows needs a Vulkan/Metal
+#                       backend that does not exist in this codebase yet.
+#   - Windows ARM32  -> dead target since Windows RT (2012); vcpkg has no
+#                       `arm-windows` triplet, so there is nothing to ship.
+# Track these in https://github.com/VisualActions/Continuous/issues if you
+# decide to invest in a non-D3D11 RHI.
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+  workflow_dispatch:
+
+jobs:
+  windows:
+    name: ${{ matrix.profile.name }}
+    runs-on: windows-2022
+    continue-on-error: ${{ matrix.profile.experimental }}
+    strategy:
+      fail-fast: false
+      matrix:
+        profile:
+          - name: Windows-x64
+            triplet: x64-windows
+            arch: x64
+            experimental: false
+          - name: Windows-x86
+            triplet: x86-windows
+            arch: Win32
+            experimental: true
+          - name: Windows-ARM64
+            triplet: arm64-windows
+            arch: ARM64
+            experimental: true
+
+    env:
+      VCPKG_BINARY_SOURCES: "clear;x-gha,readwrite"
+      VCPKG_DEFAULT_TRIPLET: ${{ matrix.profile.triplet }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Export GitHub Actions cache vars (vcpkg binary cache)
+        uses: actions/github-script@v7
+        with:
+          script: |
+            core.exportVariable('ACTIONS_CACHE_URL', process.env.ACTIONS_CACHE_URL || '');
+            core.exportVariable('ACTIONS_RUNTIME_TOKEN', process.env.ACTIONS_RUNTIME_TOKEN || '');
+
+      - name: Set up MSVC
+        uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: ${{ matrix.profile.arch == 'x64' && 'x64' || matrix.profile.arch == 'Win32' && 'x86' || 'amd64_arm64' }}
+
+      - name: Bootstrap vcpkg (action)
+        uses: lukka/run-vcpkg@v11
+        with:
+          vcpkgGitCommitId: '1de2026f28ead93d1a1f73d6347dbcfb18b0e0fe'
+
+      - name: Configure
+        shell: cmd
+        run: |
+          cmake -S . -B build -G "Visual Studio 17 2022" -A ${{ matrix.profile.arch }} ^
+            -DCMAKE_TOOLCHAIN_FILE=%VCPKG_ROOT%/scripts/buildsystems/vcpkg.cmake ^
+            -DVCPKG_TARGET_TRIPLET=${{ matrix.profile.triplet }} ^
+            -DVCPKG_HOST_TRIPLET=x64-windows
+
+      - name: Build (Release)
+        shell: cmd
+        run: cmake --build build --config Release --parallel
+
+      - name: Stage runtime + dependencies
+        shell: cmd
+        run: |
+          if not exist artifact mkdir artifact
+          xcopy /Y /E /I build\bin\Release artifact >NUL
+          if exist sandbox\scenes\sandbox.json copy /Y sandbox\scenes\sandbox.json artifact\scene.json >NUL
+          if exist engine\shaders xcopy /Y /E /I engine\shaders artifact\engine\shaders >NUL
+
+      - name: Upload artifact
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: continuous-${{ matrix.profile.name }}
+          path: artifact/
+          if-no-files-found: warn
+          retention-days: 14
+
+  # ---------------------------------------------------------------------------
+  # Placeholder jobs for the targets that cannot build yet, so the matrix in
+  # the README is honest. They print a single explanatory line and exit 0.
+  # ---------------------------------------------------------------------------
+  unsupported-platforms:
+    name: ${{ matrix.tgt }} (not-yet-supported)
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        tgt: [Linux, macOS, Windows-ARM32]
+    steps:
+      - name: Explain why this target is skipped
+        run: |
+          echo "::warning::Continuous targets Windows + D3D11 today."
+          echo "${{ matrix.tgt }} requires either a Vulkan/Metal RHI backend"
+          echo "(macOS/Linux) or a discontinued vcpkg triplet (ARM32)."
+          echo "Tracking in repository issues; this job is intentional."

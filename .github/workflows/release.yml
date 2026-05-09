@@ -1,0 +1,130 @@
+name: Release
+
+# Triggered by pushing a tag like `v0.1.0`. Builds Windows x64/x86/ARM64,
+# packages each, and attaches the zips to a GitHub Release.
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Tag name to publish under'
+        required: true
+        default: 'v0.0.0-manual'
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: ${{ matrix.profile.name }}
+    runs-on: windows-2022
+    continue-on-error: ${{ matrix.profile.experimental }}
+    strategy:
+      fail-fast: false
+      matrix:
+        profile:
+          - name: Windows-x64
+            triplet: x64-windows
+            arch: x64
+            experimental: false
+          - name: Windows-x86
+            triplet: x86-windows
+            arch: Win32
+            experimental: true
+          - name: Windows-ARM64
+            triplet: arm64-windows
+            arch: ARM64
+            experimental: true
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: ${{ matrix.profile.arch == 'x64' && 'x64' || matrix.profile.arch == 'Win32' && 'x86' || 'amd64_arm64' }}
+
+      - uses: lukka/run-vcpkg@v11
+        with:
+          vcpkgGitCommitId: '1de2026f28ead93d1a1f73d6347dbcfb18b0e0fe'
+
+      - name: Configure
+        shell: cmd
+        run: |
+          cmake -S . -B build -G "Visual Studio 17 2022" -A ${{ matrix.profile.arch }} ^
+            -DCMAKE_TOOLCHAIN_FILE=%VCPKG_ROOT%/scripts/buildsystems/vcpkg.cmake ^
+            -DVCPKG_TARGET_TRIPLET=${{ matrix.profile.triplet }} ^
+            -DVCPKG_HOST_TRIPLET=x64-windows
+
+      - name: Build (Release)
+        shell: cmd
+        run: cmake --build build --config Release --parallel
+
+      - name: Cook assets (when present)
+        shell: cmd
+        run: |
+          if exist build\bin\Release\cooker.exe (
+            if exist assets (
+              build\bin\Release\cooker.exe assets assets\cooked
+            )
+          )
+
+      - name: Stage redistributable
+        shell: cmd
+        run: |
+          set OUT=packaged\Continuous-${{ matrix.profile.name }}
+          if exist %OUT% rmdir /S /Q %OUT%
+          mkdir %OUT%
+          xcopy /Y build\bin\Release\ContinuousRuntime.exe %OUT%\ >NUL
+          xcopy /Y build\bin\Release\sandbox_gameplay.dll  %OUT%\ >NUL
+          for %%f in (build\bin\Release\*.dll) do xcopy /Y "%%f" %OUT%\ >NUL
+          if exist sandbox\scenes\sandbox.json copy /Y sandbox\scenes\sandbox.json %OUT%\scene.json >NUL
+          if exist assets\cooked          xcopy /Y /E /I assets\cooked        %OUT%\assets\cooked >NUL
+          if exist engine\shaders         xcopy /Y /E /I engine\shaders       %OUT%\engine\shaders >NUL
+          xcopy /Y vcpkg.json %OUT%\ >NUL
+          xcopy /Y README.md  %OUT%\ >NUL
+
+      - name: Zip
+        shell: pwsh
+        run: |
+          $name = "Continuous-${{ matrix.profile.name }}.zip"
+          Compress-Archive -Path "packaged\Continuous-${{ matrix.profile.name }}\*" -DestinationPath $name -Force
+          Get-Item $name | ForEach-Object { "::notice::built $($_.Name) ($([math]::Round($_.Length/1MB,2)) MB)" }
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Continuous-${{ matrix.profile.name }}
+          path: Continuous-${{ matrix.profile.name }}.zip
+          retention-days: 90
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+
+      - name: Resolve tag
+        id: tag
+        run: |
+          if [ -n "${{ inputs.tag }}" ]; then
+            echo "ref=${{ inputs.tag }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "ref=${GITHUB_REF##*/}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Publish GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.tag.outputs.ref }}
+          name: Continuous ${{ steps.tag.outputs.ref }}
+          generate_release_notes: true
+          fail_on_unmatched_files: false
+          files: |
+            dist/**/*.zip

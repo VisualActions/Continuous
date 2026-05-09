@@ -202,6 +202,39 @@ projects/       (created by scripts\new-project.bat)
 scripts/        bootstrap, package, new-project
 ```
 
+## Continuous Integration & releases
+
+The repo ships two GitHub Actions workflows:
+
+- `.github/workflows/ci.yml` — runs on every push/PR to `main` (or `master`).
+  Matrix: **Windows x64 (required)**, Windows x86 (best-effort), Windows
+  ARM64 (best-effort).
+- `.github/workflows/release.yml` — triggered by pushing a `v*` tag. Builds
+  the same matrix, packages each, zips the result, and attaches the zips to
+  a GitHub Release.
+
+To cut a release:
+
+```bat
+git tag v0.1.0
+git push origin v0.1.0
+```
+
+Platforms not on the matrix and why:
+
+| Target           | Status            | Why                                                                                  |
+|------------------|-------------------|--------------------------------------------------------------------------------------|
+| Windows x64      | supported         | Primary target.                                                                      |
+| Windows x86      | best-effort       | D3D11 + vcpkg `x86-windows` should work; some libs (Jolt SIMD) need extra defines.   |
+| Windows ARM64    | best-effort       | D3D11 + vcpkg `arm64-windows`; cross-compiled from the x64 runner.                   |
+| Windows ARM32    | **not supported** | Discontinued by Microsoft after Windows RT (2012); no `arm-windows` vcpkg triplet.   |
+| macOS            | **not supported** | Renderer is D3D11; would need a Metal backend that does not exist in this repo yet.  |
+| Linux            | **not supported** | Renderer is D3D11; would need a Vulkan/OpenGL backend that does not exist yet.       |
+
+Adding macOS/Linux means adding a Render Hardware Interface abstraction over
+the current D3D11 calls, then implementing a Vulkan/Metal backend. That is
+real engineering work, not a workflow change.
+
 ## Honesty section
 
 This is a foundation engine — every claimed system is wired end-to-end and
